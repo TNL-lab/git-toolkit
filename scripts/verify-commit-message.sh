@@ -4,7 +4,7 @@ set -euo pipefail
 COMMIT_MSG_FILE="$1"
 
 #1 Read commit message (file or stdin)
-if [[ "$INPUT" == "-" ]]; then
+if [[ "$COMMIT_MSG_FILE" == "-" ]]; then
   COMMIT_MSG=$(cat)
 else
   COMMIT_MSG=$(sed -n '1p' "$COMMIT_MSG_FILE")
