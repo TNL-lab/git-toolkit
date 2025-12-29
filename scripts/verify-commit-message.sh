@@ -63,7 +63,7 @@ fi
 
 TYPE="${BASH_REMATCH[1]}"
 SCOPE="${BASH_REMATCH[2]}"
-PHASE="${BASH_REMATCH[4]:-}"
+PHASE="${BASH_REMATCH[3]:-}"
 
 ##VALIDATE TYPED
 if [[ ! " ${ALLOWED_TYPES[*]} " =~ " $TYPE " ]]; then
