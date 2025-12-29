@@ -2,15 +2,7 @@
 set -euo pipefail
 
 COMMIT_MSG_FILE="$1"
-##READ COMMIT MESSAGE
-if [[ "$COMMIT_MSG_FILE" == "-" ]]; then
-  COMMIT_MSG=$(cat)
-else
-  COMMIT_MSG=$(sed -n '1p' "$COMMIT_MSG_FILE")
-fi
-
-# Trim newline
-COMMIT_MSG=$(echo "$COMMIT_MSG" | tr -d '\n')
+COMMIT_MSG=$(head -n1 "$COMMIT_MSG" | tr -d '\n')
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 CONFIG_FILE="$REPO_ROOT/.git-toolkit.yml"
