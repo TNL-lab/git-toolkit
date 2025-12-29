@@ -2,7 +2,15 @@
 set -euo pipefail
 
 COMMIT_MSG_FILE="$1"
-COMMIT_MSG="$(head -n 1 "$COMMIT_MSG_FILE")"
+##READ COMMIT MESSAGE
+if [[ "$COMMIT_MSG_FILE" == "-" ]]; then
+  COMMIT_MSG=$(cat)
+else
+  COMMIT_MSG=$(sed -n '1p' "$COMMIT_MSG_FILE")
+fi
+
+# Trim newline
+COMMIT_MSG=$(echo "$COMMIT_MSG" | tr -d '\n')
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 CONFIG_FILE="$REPO_ROOT/.git-toolkit.yml"
@@ -33,7 +41,7 @@ PHASE_REQUIRED=$(grep "required:" "$CONFIG_FILE" | awk '{print $2}')
 PHASE_PATTERN=$(grep "pattern:" "$CONFIG_FILE" | awk '{print $2}' | tr -d '"')
 
 ##EXTRACT COMMIT MSG WITH REGEX
-COMMIT_REGEX='^([a-z]+)\(([a-zA-Z0-9_-]+)\)(\[([^\]]+)\])?:'
+COMMIT_REGEX='^(feat|fix|docs|test|refactor|chore|style)\([a-zA-Z0-9_-]+\)\[phase-[0-9]+\]: [A-Z][^ ]+.*$'
 
 if [[ ! "$COMMIT_MSG" =~ $COMMIT_REGEX ]]; then
   echo "❌ Commit message does not match base format"
