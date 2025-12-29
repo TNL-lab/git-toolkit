@@ -2,7 +2,7 @@
 set -euo pipefail
 
 COMMIT_MSG_FILE="$1"
-COMMIT_MSG=$(head -n1 "$COMMIT_MSG" | tr -d '\n')
+COMMIT_MSG=$(head -n1 "$COMMIT_MSG_FILE" | tr -d '\n')
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 CONFIG_FILE="$REPO_ROOT/.git-toolkit.yml"
