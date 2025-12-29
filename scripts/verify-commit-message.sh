@@ -33,6 +33,10 @@ readarray -t ALLOWED_SCOPES < <(
 PHASE_REQUIRED=$(awk '/required:/ {print $2; exit}' "$CONFIG_FILE")
 PHASE_PATTERN=$(awk '/pattern:/ {gsub(/"/,"",$2); print $2; exit}' "$CONFIG_FILE")
 
+# Strip ^ and $ if present
+PHASE_PATTERN="${PHASE_PATTERN#^}"
+PHASE_PATTERN="${PHASE_PATTERN%$}"
+
 #Build regex
 TYPE_REGEX=$(IFS="|"; echo "${ALLOWED_TYPES[*]}")
 SCOPE_REGEX=$(IFS="|"; echo "${ALLOWED_SCOPES[*]}")
