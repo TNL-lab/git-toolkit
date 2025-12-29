@@ -2,8 +2,17 @@
 set -euo pipefail
 
 COMMIT_MSG_FILE="$1"
-COMMIT_MSG=$(head -n1 "$COMMIT_MSG_FILE" | tr -d '\n')
 
+#1 Read commit message (file or stdin)
+if [[ "$INPUT" == "-" ]]; then
+  COMMIT_MSG=$(cat)
+else
+  COMMIT_MSG=$(sed -n '1p' "$COMMIT_MSG_FILE")
+fi
+
+COMMIT_MSG=$(echo "$COMMIT_MSG" | tr -d '\n')
+
+#Locate repo root & config file
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 CONFIG_FILE="$REPO_ROOT/.git-toolkit.yml"
 
@@ -12,31 +21,39 @@ if [[ ! -f "$CONFIG_FILE" ]]; then
   exit 1
 fi
 
-##READ ALLOWED TYPES FROM CONFIG FILE
+#Read config (SAFE)
 readarray -t ALLOWED_TYPES < <(
-  grep -A20 "^commit:" "$CONFIG_FILE" \
-  | grep "allowed_types" -A20 \
-  | grep "-" \
-  | awk '{print $2}'
+  awk '/allowed_types:/,/^[^ ]/' "$CONFIG_FILE" | grep "-" | awk '{print $2}'
 )
 
-##READ ALLOWED SCOPES FROM CONFIG FILE
 readarray -t ALLOWED_SCOPES < <(
-  grep -A20 "^commit:" "$CONFIG_FILE" \
-  | grep "allowed_scopes" -A20 \
-  | grep "-" \
-  | awk '{print $2}'
+  awk '/allowed_scopes:/,/^[^ ]/' "$CONFIG_FILE" | grep "-" | awk '{print $2}'
 )
 
-##READ REQUIRED PHASE
-PHASE_REQUIRED=$(grep "required:" "$CONFIG_FILE" | awk '{print $2}')
-PHASE_PATTERN=$(grep "pattern:" "$CONFIG_FILE" | awk '{print $2}' | tr -d '"')
+PHASE_REQUIRED=$(awk '/required:/ {print $2; exit}' "$CONFIG_FILE")
+PHASE_PATTERN=$(awk '/pattern:/ {gsub(/"/,"",$2); print $2; exit}' "$CONFIG_FILE")
 
-##EXTRACT COMMIT MSG WITH REGEX
-COMMIT_REGEX='^(feat|fix|docs|test|refactor|chore|style)\([a-zA-Z0-9_-]+\)\[phase-[0-9]+\]: [A-Z][^ ]+.*$'
+#Build regex
+TYPE_REGEX=$(IFS="|"; echo "${ALLOWED_TYPES[*]}")
+SCOPE_REGEX=$(IFS="|"; echo "${ALLOWED_SCOPES[*]}")
 
+if [[ "$PHASE_REQUIRED" == "true" ]]; then
+  PHASE_PART="\[(${PHASE_PATTERN})\]"
+else
+  PHASE_PART="(\[(${PHASE_PATTERN})\])?"
+fi
+
+COMMIT_REGEX="^(${TYPE_REGEX})\\((${SCOPE_REGEX})\\)${PHASE_PART}: [A-Z][^ ]+.*$"
+
+#Validate base format
 if [[ ! "$COMMIT_MSG" =~ $COMMIT_REGEX ]]; then
-  echo "❌ Commit message does not match base format"
+   echo "❌ Commit message does not match required format"
+  echo ""
+  echo "Expected:"
+  echo "<type>(<scope>)[phase-x]: <Verb> <what>"
+  echo ""
+  echo "Actual:"
+  echo "$COMMIT_MSG"
   exit 1
 fi
 
@@ -73,6 +90,3 @@ if [[ -n "$PHASE" && ! "$PHASE" =~ $PHASE_PATTERN ]]; then
 fi
 
 echo "✅ Commit message validated against .git-toolkit.yml"
-
-
-
