@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+ROOT_DIR=$(git rev-parse --show-toplevel)
+cd "$ROOT_DIR"
+
 CONFIG=".git-toolkit.yml"
 OUTPUT="CHANGELOG.md"
 TEMPLATE="tools/git/git-toolkit/templates/CHANGELOG.template.md"
