@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-COMMIT_MSG_FILE="$1"
+COMMIT_MSG_FILE="${1:-}"
 
 #1 Read commit message (file or stdin)
 if [[ "$COMMIT_MSG_FILE" == "-" ]]; then
   COMMIT_MSG=$(cat)
-else
+elif [[ -f "$COMMIT_MSG_FILE" ]]; then
   COMMIT_MSG=$(sed -n '1p' "$COMMIT_MSG_FILE")
+else
+  echo "❌ Invalid input for commit message"
+  exit 1
 fi
 
 COMMIT_MSG=$(echo "$COMMIT_MSG" | tr -d '\n')
