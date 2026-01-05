@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+############################################
+# INIT
+############################################
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(git rev-parse --show-toplevel)"
 cd "$ROOT_DIR"
@@ -8,94 +11,83 @@ cd "$ROOT_DIR"
 source "$SCRIPT_DIR/lib/config.sh"
 source "$SCRIPT_DIR/lib/runner.sh"
 
-TAG="${1:-}"
-
-if [[ -z "$TAG" ]]; then
-  echo "❌ Usage: bump-version.sh <tag>"
-  exit 1
-fi
-
 CONFIG_FILE=".git-toolkit.yml"
 
-VERSION_FILE="${VERSION_FILE:-$(yq '.version.file' "$CONFIG_FILE")}"
+############################################
+# CONFIG
+############################################
+VERSION_FILE="$(yq '.version.file' "$CONFIG_FILE")"
+DRY_RUN="$(yq '.release.dryRun // false' "$CONFIG_FILE")"
 
 if [[ -z "$VERSION_FILE" || "$VERSION_FILE" == "null" ]]; then
   echo "❌ version.file not defined in $CONFIG_FILE"
   exit 1
 fi
 
-# Read bump rules from config
-MAJOR_KEYWORD=$(yq '.release.major_keyword' "$CONFIG_FILE")
-BUMP_RULE_FEAT=$(yq '.release.bump_rules.feat // "minor"' "$CONFIG_FILE")
-BUMP_RULE_FIX=$(yq '.release.bump_rules.fix // "patch"' "$CONFIG_FILE")
+CURRENT_VERSION="$(cat "$VERSION_FILE")"
 
-# Expect: toolkit-v1.2.3
-if [[ ! "$TAG" =~ v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
-  echo "❌ Invalid tag format. Expected <prefix>-vMAJOR.MINOR.PATCH"
-  exit 1
-fi
+log "Current version: $CURRENT_VERSION"
+log "Dry-run mode: $DRY_RUN"
 
-MAJOR="${BASH_REMATCH[1]}"
-MINOR="${BASH_REMATCH[2]}"
-PATCH="${BASH_REMATCH[3]}"
+############################################
+# LOAD COMMITS SINCE LAST TAG
+############################################
+git fetch --tags
 
-if [[ "$DRY_RUN" == "true" ]]; then
-  echo "💧 DRY-RUN mode: VERSION would be bumped to $VERSION"
-  exit 0
-fi
+LAST_TAG="$(git tag --sort=-creatordate | head -n 1)"
 
-# Get previous tag
-PREV_TAG=$(git describe --tags --abbrev=0 "$TAG"^ 2>/dev/null || echo "")
-
-# Collect commits
-if [[ -n "$PREV_TAG" ]]; then
-  COMMITS=$(git log "$PREV_TAG..$TAG" --pretty=format:"%s")
+if [[ -z "$LAST_TAG" ]]; then
+  log "No tag found → scanning all commits"
+  COMMITS=$(git log --pretty=format:%s)
 else
-  COMMITS=$(git log "$TAG" --pretty=format:"%s")
+  log "Last tag: $LAST_TAG"
+  COMMITS=$(git log "$LAST_TAG"..HEAD --pretty=format:%s)
 fi
 
-# Determine bump type
-BUMP_TYPE="none"
-if grep -q "$MAJOR_KEYWORD" <<< "$COMMITS"; then
-    BUMP_TYPE="major"
-elif grep -q "^feat" <<< "$COMMITS"; then
-    BUMP_TYPE="$BUMP_RULE_FEAT"
-elif grep -q "^fix" <<< "$COMMITS"; then
-    BUMP_TYPE="$BUMP_RULE_FIX"
-fi
+############################################
+# DETECT BUMP TYPE (LEVEL 20)
+############################################
+FINAL_BUMP=""
 
-if [[ "$BUMP_TYPE" == "none" ]]; then
-  echo "ℹ️ No version bump needed"
+while read -r commit; do
+  bump="$(get_bump_type "$commit")"
+  [[ -z "$bump" ]] && continue
+
+  if should_override_bump "$FINAL_BUMP" "$bump"; then
+    FINAL_BUMP="$bump"
+  fi
+done <<< "$COMMITS"
+
+if [[ -z "$FINAL_BUMP" ]]; then
+  log "No version bump required"
   exit 0
 fi
 
-# Apply bump
-case "$BUMP_TYPE" in
-  major)
-    ((MAJOR++))
-    MINOR=0
-    PATCH=0
-    ;;
-  minor)
-    ((MINOR++))
-    PATCH=0
-    ;;
-  patch)
-    ((PATCH++))
-    ;;
-  *)
-    echo "❌ Unknown bump type: $BUMP_TYPE"
-    exit 1
-    ;;
-esac
+log "Detected bump type: $FINAL_BUMP"
 
-VERSION="$MAJOR.$MINOR.$PATCH"
+############################################
+# CALCULATE NEW VERSION
+############################################
+NEW_VERSION="$(bump_semver "$CURRENT_VERSION" "$FINAL_BUMP")"
 
-echo "$VERSION" > "$VERSION_FILE"
-echo "🔖 VERSION updated to $VERSION in $VERSION_FILE"
+log "New version: $NEW_VERSION"
+
+############################################
+# DRY RUN
+############################################
+if [[ "$DRY_RUN" == "true" ]]; then
+  echo "💧 DRY-RUN: version would be bumped from $CURRENT_VERSION → $NEW_VERSION"
+  exit 0
+fi
+
+############################################
+# APPLY VERSION
+############################################
+echo "$NEW_VERSION" > "$VERSION_FILE"
 
 run_cmd git add "$VERSION_FILE"
-run_cmd git commit -m "chore(release): bump version to $VERSION"
-run_cmd git push origin HEAD
+run_cmd git commit -m "chore(release): bump version to $NEW_VERSION"
+run_cmd git tag "v$NEW_VERSION"
+run_cmd git push origin HEAD --tags
 
-echo "✅ VERSION bump committed & pushed"
+log "✅ VERSION bump completed"
