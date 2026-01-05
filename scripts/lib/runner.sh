@@ -85,14 +85,15 @@ get_bump_type() {
   fi
 
   case "$commit" in
-    feat(*)      ) echo "minor" ;;
-    fix(*)       ) echo "patch" ;;
-    docs(*)      ) echo "patch" ;;
-    test(*)      ) echo "patch" ;;
-    refactor(*)  ) echo "patch" ;;
-    style(*)     ) echo "patch" ;;
-    chore(*)     ) echo "patch" ;;
-    *            ) echo "" ;;
+    feat\(*\)* ) echo "minor" ;;
+    fix\(*\)* ) echo "patch" ;;
+    docs\(*\)* ) echo "patch" ;;
+    test\(*\)* ) echo "patch" ;;
+    refactor\(*\)* ) echo "patch" ;;
+    style\(*\)* ) echo "patch" ;;
+    chore\(*\)* ) echo "patch" ;;
+    * ) echo "" ;;
+
   esac
 }
 
