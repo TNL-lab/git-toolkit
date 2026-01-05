@@ -5,7 +5,7 @@ set -euo pipefail
 # DRY RUN
 ############################################
 run_cmd() {
-  if [[ "$DRY_RUN" == "true" ]]; then
+  if [[ "${DRY_RUN:-false}" == "true" ]]; then
     echo "🟡 DRY-RUN: $*"
   else
     echo "▶ RUN: $*"
@@ -40,22 +40,10 @@ bump_semver() {
   IFS='.' read -r major minor patch <<< "$version"
 
   case "$bump" in
-    major)
-      major=$((major + 1))
-      minor=0
-      patch=0
-      ;;
-    minor)
-      minor=$((minor + 1))
-      patch=0
-      ;;
-    patch)
-      patch=$((patch + 1))
-      ;;
-    *)
-      echo "$version"
-      return
-      ;;
+    major) ((major++)); minor=0; patch=0 ;;
+    minor) ((minor++)); patch=0 ;;
+    patch) ((patch++)) ;;
+    *) echo "$version"; return ;;
   esac
 
   echo "${major}.${minor}.${patch}"
@@ -67,33 +55,23 @@ bump_semver() {
 
 extract_scope() {
   local commit="$1"
-
-  if [[ "$commit" =~ ^[a-zA-Z]+\(([^)]+)\): ]]; then
-    echo "${BASH_REMATCH[1]}"
-  else
-    echo ""
-  fi
+  echo "$commit" | sed -n 's/^[a-zA-Z]\+(\([^)]\+\)):.*/\1/p'
 }
 
 get_bump_type() {
   local commit="$1"
 
-  # BREAKING CHANGE → MAJOR
-  if echo "$commit" | grep -q "BREAKING CHANGE"; then
+  if grep -q "BREAKING CHANGE" <<<"$commit"; then
     echo "major"
     return
   fi
 
   case "$commit" in
     feat\(*\)* ) echo "minor" ;;
-    fix\(*\)* ) echo "patch" ;;
-    docs\(*\)* ) echo "patch" ;;
-    test\(*\)* ) echo "patch" ;;
-    refactor\(*\)* ) echo "patch" ;;
-    style\(*\)* ) echo "patch" ;;
-    chore\(*\)* ) echo "patch" ;;
+    fix\(*\)*|docs\(*\)*|test\(*\)*|refactor\(*\)*|style\(*\)*|chore\(*\)* )
+      echo "patch"
+      ;;
     * ) echo "" ;;
-
   esac
 }
 
