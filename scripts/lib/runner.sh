@@ -68,7 +68,7 @@ bump_semver() {
 extract_scope() {
   local commit="$1"
 
-  if [[ "$commit" =~ ^[a-zA-Z]+\\(([^)]+)\\): ]]; then
+  if [[ "$commit" =~ ^[a-zA-Z]+\\(([^)]+)\\: ]]; then
     echo "${BASH_REMATCH[1]}"
   else
     echo ""
