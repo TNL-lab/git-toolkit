@@ -34,7 +34,7 @@ declare -A RELEASE_TITLES
 declare -A RELEASE_COMMITS
 
 for type in "${ALLOWED_TYPES[@]}"; do
-  RELEASE_TITLES[$type]=$(get_semantic_group_title "$type")
+  RELEASE_TITLES[$type]=$(get_semantic_group_title "$type" "$CONFIG_FILE")
   RELEASE_COMMITS[$type]=""
 done
 

@@ -9,3 +9,9 @@ run_cmd() {
     "$@"
   fi
 }
+
+get_semantic_group_title() {
+  local type="$1"
+  local config_file="$2"
+  yq -r ".release.semantic_groups.$type" "$config_file"
+}
