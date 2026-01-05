@@ -1,22 +1,35 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-TAG="$1"
+TAG="${1:-}"
 
 if [[ -z "$TAG" ]]; then
   echo "❌ Usage: gen-release-notes.sh <tag>"
   exit 1
 fi
 
-# Load config
-ALLOWED_TYPES=$(yq '.commit.allowed_types | join("|")' .git-toolkit.yml)
-declare -A RELEASE_GROUPS
-for type in $ALLOWED_TYPES; do
-  RELEASE_GROUPS[$type]=""
+CONFIG_FILE=".git-toolkit.yml"
+
+if [[ ! -f "$CONFIG_FILE" ]]; then
+  echo "❌ $CONFIG_FILE not found"
+  exit 1
+fi
+
+# Load allowed commit types (LIST, not regex)
+mapfile -t ALLOWED_TYPES < <(yq '.commit.allowed_types[]' "$CONFIG_FILE")
+
+# Load semantic group titles
+declare -A RELEASE_TITLES
+for type in "${ALLOWED_TYPES[@]}"; do
+  RELEASE_TITLES[$type]=$(yq ".release.semantic_groups.$type" "$CONFIG_FILE")
 done
+
+# Prepare commit buckets
+declare -A RELEASE_COMMITS
 
 # Get tag title
 TITLE=$(git tag -l "$TAG" -n99 | sed "s/^$TAG\s*//")
+TITLE="${TITLE:-Release $TAG}"
 
 # Get previous tag
 PREV_TAG=$(git describe --tags --abbrev=0 "$TAG"^ 2>/dev/null || echo "")
@@ -28,25 +41,27 @@ else
   COMMITS=$(git log "$TAG" --pretty=format:"%s")
 fi
 
-# Group commits
+# Group commits by type
 while read -r line; do
-  for type in $ALLOWED_TYPES; do
+  for type in "${ALLOWED_TYPES[@]}"; do
     if [[ "$line" =~ ^$type\(.+\) ]]; then
-      RELEASE_GROUPS[$type]+="- $line\n"
+      RELEASE_COMMITS[$type]+="- $line"$'\n'
       break
     fi
   done
 done <<< "$COMMITS"
 
-# Print semantic release notes
+# Render release notes
 echo "# $TITLE"
 echo ""
 echo "## Changes"
-for type in $ALLOWED_TYPES; do
-  content=${RELEASE_GROUPS[$type]}
+echo ""
+
+for type in "${ALLOWED_TYPES[@]}"; do
+  content="${RELEASE_COMMITS[$type]:-}"
   if [[ -n "$content" ]]; then
-    title=$(yq ".release.semantic_groups.$type" .git-toolkit.yml)
-    echo "### $title"
+    echo "### ${RELEASE_TITLES[$type]}"
+    echo ""
     echo -e "$content"
   fi
 done
