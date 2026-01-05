@@ -10,9 +10,9 @@ fi
 
 # Load config
 ALLOWED_TYPES=$(yq '.commit.allowed_types | join("|")' .git-toolkit.yml)
-declare -A GROUPS
+declare -A RELEASE_GROUPS
 for type in $ALLOWED_TYPES; do
-  GROUPS[$type]=""
+  RELEASE_GROUPS[$type]=""
 done
 
 # Get tag title
@@ -32,7 +32,7 @@ fi
 while read -r line; do
   for type in $ALLOWED_TYPES; do
     if [[ "$line" =~ ^$type\(.+\) ]]; then
-      GROUPS[$type]+="- $line\n"
+      RELEASE_GROUPS[$type]+="- $line\n"
       break
     fi
   done
@@ -43,7 +43,7 @@ echo "# $TITLE"
 echo ""
 echo "## Changes"
 for type in $ALLOWED_TYPES; do
-  content=${GROUPS[$type]}
+  content=${RELEASE_GROUPS[$type]}
   if [[ -n "$content" ]]; then
     title=$(yq ".release.semantic_groups.$type" .git-toolkit.yml)
     echo "### $title"
