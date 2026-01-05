@@ -39,7 +39,7 @@ fi
 ############################################
 # PACKAGE-AWARE VERSIONING
 ############################################
-declare -A PACKAGE_BUMPS
+declare -A PACKAGE_BUMPS=()
 
 while read -r commit_msg; do
   bump_type="$(get_bump_type "$commit_msg")"
