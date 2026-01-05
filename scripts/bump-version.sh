@@ -5,8 +5,8 @@ set -euo pipefail
 # INIT
 ############################################
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="$(git rev-parse --show-toplevel)"
-cd "$ROOT_DIR"
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT"
 
 source "$SCRIPT_DIR/lib/config.sh"
 source "$SCRIPT_DIR/lib/runner.sh"
@@ -30,30 +30,28 @@ LAST_TAG="$(git tag --sort=-creatordate | head -n 1)"
 
 if [[ -z "$LAST_TAG" ]]; then
   log "No tag found → scanning all commits"
-  COMMITS=$(git log --pretty=format:%s)
+  COMMITS="$(git log --pretty=format:%s)"
 else
   log "Last tag: $LAST_TAG"
-  COMMITS=$(git log "$LAST_TAG"..HEAD --pretty=format:%s)
+  COMMITS="$(git log "$LAST_TAG"..HEAD --pretty=format:%s)"
 fi
 
 ############################################
 # PACKAGE-AWARE VERSIONING
 ############################################
-source "$SCRIPT_DIR/lib/packages.sh"
-
 declare -A PACKAGE_BUMPS
 
-while read -r commit; do
-  bump="$(get_bump_type "$commit")"
-  [[ -z "$bump" ]] && continue
+while read -r commit_msg; do
+  bump_type="$(get_bump_type "$commit_msg")"
+  [[ -z "$bump_type" ]] && continue
 
-  pkg="$(get_package_from_commit "$commit")"
-  [[ -z "$pkg" ]] && continue
+  package_name="$(get_package_from_commit "$commit_msg")"
+  [[ -z "$package_name" ]] && continue
 
-  current="${PACKAGE_BUMPS[$pkg]:-}"
+  current_bump="${PACKAGE_BUMPS[$package_name]:-}"
 
-  if should_override_bump "$current" "$bump"; then
-    PACKAGE_BUMPS["$pkg"]="$bump"
+  if should_override_bump "$current_bump" "$bump_type"; then
+    PACKAGE_BUMPS["$package_name"]="$bump_type"
   fi
 done <<< "$COMMITS"
 
@@ -65,18 +63,35 @@ fi
 ############################################
 # APPLY PER PACKAGE
 ############################################
-  log "📦 $pkg: $current_version → $new_version ($bump)"
+for package_name in "${!PACKAGE_BUMPS[@]}"; do
+  bump_type="${PACKAGE_BUMPS[$package_name]}"
+  version_file="$(get_package_version_file "$package_name")"
+
+  if [[ -z "$version_file" || "$version_file" == "null" ]]; then
+    log "⚠️ No VERSION file configured for package '$package_name'"
+    continue
+  fi
+
+  if [[ ! -f "$version_file" ]]; then
+    log "⚠️ VERSION file not found: $version_file"
+    continue
+  fi
+
+  current_version="$(cat "$version_file")"
+  new_version="$(bump_semver "$current_version" "$bump_type")"
+
+  log "📦 $package_name: $current_version → $new_version ($bump_type)"
 
   if [[ "$DRY_RUN" == "true" ]]; then
-    echo "💧 DRY-RUN: $pkg would bump to $new_version"
+    log "💧 DRY-RUN: $package_name would bump to $new_version"
     continue
   fi
 
   echo "$new_version" > "$version_file"
 
   run_cmd git add "$version_file"
-  run_cmd git commit -m "chore(release): bump $pkg to $new_version"
-  run_cmd git tag "$pkg-v$new_version"
+  run_cmd git commit -m "chore(release): bump $package_name to $new_version"
+  run_cmd git tag "$package_name-v$new_version"
 done
 
 ############################################
