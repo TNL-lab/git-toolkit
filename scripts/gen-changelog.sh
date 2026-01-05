@@ -2,8 +2,13 @@
 set -euo pipefail
 
 # Root repo
-ROOT_DIR=$(git rev-parse --show-toplevel)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(git rev-parse --show-toplevel)"
 cd "$ROOT_DIR"
+
+# Load lib
+source "$SCRIPT_DIR/lib/config.sh"
+source "$SCRIPT_DIR/lib/runner.sh"
 
 # Config
 CONFIG=".git-toolkit.yml"
@@ -28,7 +33,7 @@ command -v yq >/dev/null 2>&1 || {
 
 # Read config
 TAG_PREFIX=$(yq '.toolkit.phase.tag_prefix' "$CONFIG")
-[[ -n "$TAG_PREFIX" ]] || {
+[[ -n "$TAG_PREFIX" && "$TAG_PREFIX" != "null" ]] || {
   echo "❌ tag_prefix is empty in $CONFIG"
   exit 1
 }
@@ -36,7 +41,7 @@ TAG_PREFIX=$(yq '.toolkit.phase.tag_prefix' "$CONFIG")
 # List tags
 TAGS=$(git tag --list "${TAG_PREFIX}-*" --sort=version:refname)
 if [[ -z "$TAGS" ]]; then
-  echo "⚠️ No tags found with prefix ${TAG_PREFIX}"
+  run_cmd echo "⚠️ No tags found with prefix ${TAG_PREFIX}"
   exit 0
 fi
 
@@ -57,10 +62,11 @@ for TAG in $TAGS; do
     RANGE="$TAG"
   fi
 
-  git log "$RANGE" \
+  run_cmd git log "$RANGE" \
     --pretty=format:"- %s" \
     --no-merges >> "$OUTPUT"
-  echo "" >> "$OUTPUT"
+
+  run_cmd echo "" >> "$OUTPUT"
 
   PREV_TAG="$TAG"
 done

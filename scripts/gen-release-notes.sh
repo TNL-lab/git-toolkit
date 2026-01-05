@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(git rev-parse --show-toplevel)"
+cd "$ROOT_DIR"
+
+source "$SCRIPT_DIR/lib/config.sh"
+source "$SCRIPT_DIR/lib/runner.sh"
+
 TAG="${1:-}"
 
 if [[ -z "$TAG" ]]; then
@@ -15,17 +22,21 @@ if [[ ! -f "$CONFIG_FILE" ]]; then
   exit 1
 fi
 
+ALLOWED_TYPES=("${COMMIT_ALLOWED_TYPES[@]}")
+
 # Load allowed commit types (LIST, not regex)
 mapfile -t ALLOWED_TYPES < <(yq '.commit.allowed_types[]' "$CONFIG_FILE")
 
 # Load semantic group titles
 declare -A RELEASE_TITLES
-for type in "${ALLOWED_TYPES[@]}"; do
-  RELEASE_TITLES[$type]=$(yq ".release.semantic_groups.$type" "$CONFIG_FILE")
-done
 
 # Prepare commit buckets
 declare -A RELEASE_COMMITS
+
+for type in "${ALLOWED_TYPES[@]}"; do
+  RELEASE_TITLES[$type]=$(get_semantic_group_title "$type")
+  RELEASE_COMMITS[$type]=""
+done
 
 # Get tag title
 TITLE=$(git tag -l "$TAG" -n99 | sed "s/^$TAG\s*//")
@@ -36,9 +47,9 @@ PREV_TAG=$(git describe --tags --abbrev=0 "$TAG"^ 2>/dev/null || echo "")
 
 # Collect commits
 if [[ -n "$PREV_TAG" ]]; then
-  COMMITS=$(git log "$PREV_TAG..$TAG" --pretty=format:"%s")
+  COMMITS=$(git log "$PREV_TAG..$TAG" --pretty=format:"%s" --no-merges)
 else
-  COMMITS=$(git log "$TAG" --pretty=format:"%s")
+  COMMITS=$(git log "$TAG" --pretty=format:"%s" --no-merges)
 fi
 
 # Group commits by type
@@ -65,3 +76,5 @@ for type in "${ALLOWED_TYPES[@]}"; do
     echo -e "$content"
   fi
 done
+
+echo "✅ RELEASE.md generated"
