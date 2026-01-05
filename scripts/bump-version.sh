@@ -10,23 +10,15 @@ cd "$ROOT_DIR"
 
 source "$SCRIPT_DIR/lib/config.sh"
 source "$SCRIPT_DIR/lib/runner.sh"
+source "$SCRIPT_DIR/lib/packages.sh"
 
 CONFIG_FILE=".git-toolkit.yml"
 
 ############################################
 # CONFIG
 ############################################
-VERSION_FILE="$(yq '.version.file' "$CONFIG_FILE")"
 DRY_RUN="$(yq '.release.dryRun // false' "$CONFIG_FILE")"
 
-if [[ -z "$VERSION_FILE" || "$VERSION_FILE" == "null" ]]; then
-  echo "❌ version.file not defined in $CONFIG_FILE"
-  exit 1
-fi
-
-CURRENT_VERSION="$(cat "$VERSION_FILE")"
-
-log "Current version: $CURRENT_VERSION"
 log "Dry-run mode: $DRY_RUN"
 
 ############################################
@@ -45,49 +37,53 @@ else
 fi
 
 ############################################
-# DETECT BUMP TYPE (LEVEL 20)
+# PACKAGE-AWARE VERSIONING
 ############################################
-FINAL_BUMP=""
+source "$SCRIPT_DIR/lib/packages.sh"
+
+declare -A PACKAGE_BUMPS
 
 while read -r commit; do
   bump="$(get_bump_type "$commit")"
   [[ -z "$bump" ]] && continue
 
-  if should_override_bump "$FINAL_BUMP" "$bump"; then
-    FINAL_BUMP="$bump"
+  pkg="$(get_package_from_commit "$commit")"
+  [[ -z "$pkg" ]] && continue
+
+  current="${PACKAGE_BUMPS[$pkg]:-}"
+
+  if should_override_bump "$current" "$bump"; then
+    PACKAGE_BUMPS["$pkg"]="$bump"
   fi
 done <<< "$COMMITS"
 
-if [[ -z "$FINAL_BUMP" ]]; then
-  log "No version bump required"
-  exit 0
-fi
-
-log "Detected bump type: $FINAL_BUMP"
-
-############################################
-# CALCULATE NEW VERSION
-############################################
-NEW_VERSION="$(bump_semver "$CURRENT_VERSION" "$FINAL_BUMP")"
-
-log "New version: $NEW_VERSION"
-
-############################################
-# DRY RUN
-############################################
-if [[ "$DRY_RUN" == "true" ]]; then
-  echo "💧 DRY-RUN: version would be bumped from $CURRENT_VERSION → $NEW_VERSION"
+if [[ "${#PACKAGE_BUMPS[@]}" -eq 0 ]]; then
+  log "No package requires version bump"
   exit 0
 fi
 
 ############################################
-# APPLY VERSION
+# APPLY PER PACKAGE
 ############################################
-echo "$NEW_VERSION" > "$VERSION_FILE"
+  log "📦 $pkg: $current_version → $new_version ($bump)"
 
-run_cmd git add "$VERSION_FILE"
-run_cmd git commit -m "chore(release): bump version to $NEW_VERSION"
-run_cmd git tag "v$NEW_VERSION"
-run_cmd git push origin HEAD --tags
+  if [[ "$DRY_RUN" == "true" ]]; then
+    echo "💧 DRY-RUN: $pkg would bump to $new_version"
+    continue
+  fi
 
-log "✅ VERSION bump completed"
+  echo "$new_version" > "$version_file"
+
+  run_cmd git add "$version_file"
+  run_cmd git commit -m "chore(release): bump $pkg to $new_version"
+  run_cmd git tag "$pkg-v$new_version"
+done
+
+############################################
+# PUSH
+############################################
+if [[ "$DRY_RUN" != "true" ]]; then
+  run_cmd git push origin HEAD --tags
+fi
+
+log "✅ Multi-package version bump completed"
