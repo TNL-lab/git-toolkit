@@ -1,28 +1,31 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Root repo
+############################################
+# INIT
+############################################
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="$(git rev-parse --show-toplevel)"
-cd "$ROOT_DIR"
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT"
 
-# Load lib
+CONFIG_FILE=".git-toolkit.yml"
+TEMPLATE="$SCRIPT_DIR/templates/CHANGELOG.template.md"
+OUTPUT="CHANGELOG.md"
+
+# Load libs
 source "$SCRIPT_DIR/lib/config.sh"
 source "$SCRIPT_DIR/lib/runner.sh"
 
-# Config
-CONFIG=".git-toolkit.yml"
-TEMPLATE="${TOOLKIT_ROOT}/templates/CHANGELOG.template.md"
-OUTPUT="CHANGELOG.md"
-
-# Validations
+############################################
+# VALIDATIONS
+############################################
 command -v yq >/dev/null 2>&1 || {
   echo "❌ yq is required but not installed"
   exit 1
 }
 
-[[ -f "$CONFIG" ]] || {
-  echo "❌ Missing $CONFIG"
+[[ -f "$CONFIG_FILE" ]] || {
+  echo "❌ Missing $CONFIG_FILE"
   exit 1
 }
 
@@ -31,33 +34,51 @@ command -v yq >/dev/null 2>&1 || {
   exit 1
 }
 
-# Read config
-TAG_PREFIX=$(yq '.toolkit.phase.tag_prefix' "$CONFIG")
-[[ -n "$TAG_PREFIX" && "$TAG_PREFIX" != "null" ]] || {
-  echo "❌ tag_prefix is empty in $CONFIG"
-  exit 1
-}
+############################################
+# READ CONFIG
+############################################
+PHASE_ENABLED="$(yq -r '.toolkit.phase.enabled // false' "$CONFIG_FILE")"
+TAG_PREFIX="$(yq -r '.toolkit.phase.tagPrefix // empty' "$CONFIG_FILE")"
 
-# List tags
-TAGS=$(git tag --list "${TAG_PREFIX}-*" --sort=version:refname)
+if [[ "$PHASE_ENABLED" != "true" ]]; then
+  log "Phase tagging disabled → skip changelog generation"
+  exit 0
+fi
+
+if [[ -z "$TAG_PREFIX" ]]; then
+  echo "❌ toolkit.phase.tagPrefix is empty in $CONFIG_FILE"
+  exit 1
+fi
+
+############################################
+# LIST TAGS
+############################################
+TAGS="$(git tag --list "${TAG_PREFIX}-*" --sort=version:refname)"
+
 if [[ -z "$TAGS" ]]; then
   run_cmd echo "⚠️ No tags found with prefix ${TAG_PREFIX}"
   exit 0
 fi
 
-# Init CHANGELOG
+############################################
+# INIT CHANGELOG
+############################################
 cp "$TEMPLATE" "$OUTPUT"
 echo "" >> "$OUTPUT"
 
+############################################
+# GENERATE CHANGELOG
+############################################
 PREV_TAG=""
+
 for TAG in $TAGS; do
-  TITLE=$(git tag -l "$TAG" -n99 | sed "s/^$TAG\s*//")
+  TITLE="$(git tag -l "$TAG" -n99 | sed "s/^${TAG}[[:space:]]*//")"
 
   echo "## $TITLE" >> "$OUTPUT"
   echo "" >> "$OUTPUT"
 
   if [[ -n "$PREV_TAG" ]]; then
-    RANGE="$PREV_TAG..$TAG"
+    RANGE="${PREV_TAG}..${TAG}"
   else
     RANGE="$TAG"
   fi
@@ -66,9 +87,9 @@ for TAG in $TAGS; do
     --pretty=format:"- %s" \
     --no-merges >> "$OUTPUT"
 
-  run_cmd echo "" >> "$OUTPUT"
+  echo "" >> "$OUTPUT"
 
   PREV_TAG="$TAG"
 done
 
-echo "✅ CHANGELOG.md generated at $OUTPUT"
+log "✅ CHANGELOG.md generated at $OUTPUT"

@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# -------------------------------------------------
-# Args
-# -------------------------------------------------
+############################################
+# ARGS
+############################################
 COMMIT_MSG_FILE="${1:-}"
 
-# Read commit message
 if [[ "$COMMIT_MSG_FILE" == "-" ]]; then
   COMMIT_MSG=$(cat)
 elif [[ -f "$COMMIT_MSG_FILE" ]]; then
@@ -19,27 +18,27 @@ fi
 # Strip newlines
 COMMIT_MSG="$(echo "$COMMIT_MSG" | tr -d '\n')"
 
-# -------------------------------------------------
-# Repo root & config
-# -------------------------------------------------
+############################################
+# REPO & CONFIG
+############################################
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 CONFIG_FILE="$REPO_ROOT/.git-toolkit.yml"
 
-if [[ ! -f "$CONFIG_FILE" ]]; then
+[[ -f "$CONFIG_FILE" ]] || {
   echo "❌ Missing $CONFIG_FILE at repo root"
   exit 1
-fi
+}
 
-# -------------------------------------------------
-# Load allowed types/scopes/phase
-# -------------------------------------------------
-readarray -t ALLOWED_TYPES < <(yq '.commit.allowed_types[]' "$CONFIG_FILE")
-readarray -t ALLOWED_SCOPES < <(yq '.commit.allowed_scopes[]' "$CONFIG_FILE")
+############################################
+# LOAD ALLOWED TYPES/SCOPES/PHASE
+############################################
+readarray -t ALLOWED_TYPES < <(yq -r '.commit.types.allowed[]' "$CONFIG_FILE")
+readarray -t ALLOWED_SCOPES < <(yq -r '.commit.scopes.allowed[]' "$CONFIG_FILE")
 
-PHASE_REQUIRED=$(yq '.toolkit.phase.required' "$CONFIG_FILE")
-PHASE_PATTERN=$(yq -r '.toolkit.phase.pattern' "$CONFIG_FILE")
+PHASE_REQUIRED=$(yq -r '.toolkit.phase.required // false' "$CONFIG_FILE")
+PHASE_PATTERN=$(yq -r '.toolkit.phase.pattern // empty' "$CONFIG_FILE")
 
-# Strip ^/$
+# Strip ^/$ if present
 PHASE_PATTERN="${PHASE_PATTERN#^}"
 PHASE_PATTERN="${PHASE_PATTERN%$}"
 
@@ -55,9 +54,9 @@ fi
 
 COMMIT_REGEX="^(${TYPE_REGEX})\\((${SCOPE_REGEX})\\)${PHASE_PART}: [A-Z][^ ]+.*$"
 
-# -------------------------------------------------
-# Validate commit message
-# -------------------------------------------------
+############################################
+# VALIDATE COMMIT MESSAGE
+############################################
 if [[ ! "$COMMIT_MSG" =~ $COMMIT_REGEX ]]; then
   echo "❌ Commit message does not match required format"
   echo ""
@@ -74,21 +73,27 @@ TYPE="${BASH_REMATCH[1]}"
 SCOPE="${BASH_REMATCH[2]}"
 PHASE="${BASH_REMATCH[3]:-}"
 
-# Validate TYPE
+############################################
+# VALIDATE TYPE
+############################################
 if [[ ! " ${ALLOWED_TYPES[*]} " =~ " $TYPE " ]]; then
   echo "❌ Invalid commit type: $TYPE"
   echo "Allowed: ${ALLOWED_TYPES[*]}"
   exit 1
 fi
 
-# Validate SCOPE
+############################################
+# VALIDATE SCOPE
+############################################
 if [[ ! " ${ALLOWED_SCOPES[*]} " =~ " $SCOPE " ]]; then
   echo "❌ Invalid commit scope: $SCOPE"
   echo "Allowed: ${ALLOWED_SCOPES[*]}"
   exit 1
 fi
 
-# Validate PHASE
+############################################
+# VALIDATE PHASE
+############################################
 if [[ "$PHASE_REQUIRED" == "true" && -z "$PHASE" ]]; then
   echo "❌ Phase is required but missing"
   exit 1
@@ -100,5 +105,4 @@ if [[ -n "$PHASE" && ! "$PHASE" =~ $PHASE_PATTERN ]]; then
   exit 1
 fi
 
-# Success
-echo "✅ Commit message validated against .git-toolkit.yml"
+log "✅ Commit message validated against .git-toolkit.yml"

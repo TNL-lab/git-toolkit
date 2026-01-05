@@ -14,14 +14,13 @@ run_cmd() {
 }
 
 ############################################
-# GET SEMANTIC GROUP
+# SEMANTIC GROUP (FROM CONFIG)
 ############################################
 get_semantic_group_title() {
   local type="$1"
-  local config_file="$2"
-  yq -r ".release.semantic_groups.$type" "$config_file"
-}
 
+  yq -r ".release.semanticGroups.${type} // empty" "$CONFIG_FILE"
+}
 
 ############################################
 # LOGGING
@@ -58,21 +57,33 @@ extract_scope() {
   echo "$commit" | sed -n 's/^[a-zA-Z]\+(\([^)]\+\)):.*/\1/p'
 }
 
+extract_type() {
+  local commit="$1"
+  echo "$commit" | sed -n 's/^\([a-zA-Z]\+\)(.*/\1/p'
+}
+
+############################################
+# BUMP TYPE (CONFIG DRIVEN)
+############################################
 get_bump_type() {
   local commit="$1"
+  local type
+  local breaking_keyword
+  local bump
 
-  if grep -q "BREAKING CHANGE" <<<"$commit"; then
+  breaking_keyword="$(yq -r '.release.breakingChange.keyword' "$CONFIG_FILE")"
+
+  if grep -q "$breaking_keyword" <<<"$commit"; then
     echo "major"
     return
   fi
 
-  case "$commit" in
-    feat\(*\)* ) echo "minor" ;;
-    fix\(*\)*|docs\(*\)*|test\(*\)*|refactor\(*\)*|style\(*\)*|chore\(*\)* )
-      echo "patch"
-      ;;
-    * ) echo "" ;;
-  esac
+  type="$(extract_type "$commit")"
+  [[ -z "$type" ]] && return
+
+  bump="$(yq -r ".release.versionBumpRules.${type} // empty" "$CONFIG_FILE")"
+
+  [[ "$bump" != "none" ]] && echo "$bump"
 }
 
 ############################################
@@ -90,4 +101,3 @@ should_override_bump() {
 
   return 1
 }
-

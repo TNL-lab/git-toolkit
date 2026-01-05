@@ -1,15 +1,21 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Root of framework repo (assume scripts always run from repo root)
+# Root config file
 CONFIG_FILE=".git-toolkit.yml"
 
 if [[ ! -f "$CONFIG_FILE" ]]; then
-  echo "❌ Missing $CONFIG_FILE"
+  echo "❌ Config file not found: $CONFIG_FILE"
   exit 1
 fi
 
-# Load dry-run flag (default false)
-DRY_RUN=$(yq '.release.dryRun // false' "$CONFIG_FILE")
+# Load release dry-run flag (default: false)
+DRY_RUN="$(yq -r '.release.dryRun // false' "$CONFIG_FILE")"
+
+# Normalize to strict boolean
+if [[ "$DRY_RUN" != "true" && "$DRY_RUN" != "false" ]]; then
+  echo "❌ Invalid value for release.dryRun (expected true/false)"
+  exit 1
+fi
 
 export DRY_RUN

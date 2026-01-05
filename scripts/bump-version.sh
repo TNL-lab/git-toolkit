@@ -8,23 +8,18 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 cd "$REPO_ROOT"
 
+CONFIG_FILE=".git-toolkit.yml"
+
 source "$SCRIPT_DIR/lib/config.sh"
 source "$SCRIPT_DIR/lib/runner.sh"
 source "$SCRIPT_DIR/lib/packages.sh"
-
-CONFIG_FILE=".git-toolkit.yml"
-
-############################################
-# CONFIG
-############################################
-DRY_RUN="$(yq '.release.dryRun // false' "$CONFIG_FILE")"
 
 log "Dry-run mode: $DRY_RUN"
 
 ############################################
 # LOAD COMMITS SINCE LAST TAG
 ############################################
-git fetch --tags
+run_cmd git fetch --tags
 
 LAST_TAG="$(git tag --sort=-creatordate | head -n 1)"
 
@@ -33,7 +28,7 @@ if [[ -z "$LAST_TAG" ]]; then
   COMMITS="$(git log --pretty=format:%s)"
 else
   log "Last tag: $LAST_TAG"
-  COMMITS="$(git log "$LAST_TAG"..HEAD --pretty=format:%s)"
+  COMMITS="$(git log "${LAST_TAG}..HEAD" --pretty=format:%s)"
 fi
 
 ############################################
@@ -67,8 +62,8 @@ for package_name in "${!PACKAGE_BUMPS[@]}"; do
   bump_type="${PACKAGE_BUMPS[$package_name]}"
   version_file="$(get_package_version_file "$package_name")"
 
-  if [[ -z "$version_file" || "$version_file" == "null" ]]; then
-    log "⚠️ No VERSION file configured for package '$package_name'"
+  if [[ -z "$version_file" ]]; then
+    log "⚠️ No versionFile configured for package '$package_name'"
     continue
   fi
 
@@ -90,8 +85,8 @@ for package_name in "${!PACKAGE_BUMPS[@]}"; do
   echo "$new_version" > "$version_file"
 
   run_cmd git add "$version_file"
-  run_cmd git commit -m "chore(release): bump $package_name to $new_version"
-  run_cmd git tag "$package_name-v$new_version"
+  run_cmd git commit -m "chore(release): bump ${package_name} to ${new_version}"
+  run_cmd git tag "${package_name}-v${new_version}"
 done
 
 ############################################
