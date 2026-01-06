@@ -9,12 +9,12 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 cd "$REPO_ROOT"
 
 CONFIG_FILE=".git-toolkit.yml"
-TEMPLATE="$SCRIPT_DIR/templates/CHANGELOG.template.md"
+TEMPLATE="$REPO_ROOT/templates/CHANGELOG.template.md"
 OUTPUT="CHANGELOG.md"
 
 # Load libs
-source "$SCRIPT_DIR/lib/config.sh"
-source "$SCRIPT_DIR/lib/runner.sh"
+source "$REPO_ROOT/lib/config.sh"
+source "$REPO_ROOT/lib/runner.sh"
 
 ############################################
 # VALIDATIONS
