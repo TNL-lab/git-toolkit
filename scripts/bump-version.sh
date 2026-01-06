@@ -45,44 +45,34 @@ if [[ $FE -ne 0 ]]; then
   log "⚠️ git fetch --tags failed (exit $FE), continuing anyway"
 fi
 
-LAST_TAG="$(git tag --sort=-creatordate | head -n 1)"
-
-
-############################################
-# LOAD COMMITS
-############################################
-if [[ -z "$LAST_TAG" ]]; then
-  log "No tag found → scanning all commits"
-  mapfile -t COMMITS_ARRAY < <(git log --pretty=format:%s 2>/dev/null || true)
-else
-  log "Last tag: $LAST_TAG"
-  mapfile -t COMMITS_ARRAY < <(git log "${LAST_TAG}..HEAD" --pretty=format:%s 2>/dev/null || true)
-fi
-
-if [[ "${#COMMITS_ARRAY[@]}" -eq 0 ]]; then
-  log "No new commits since last tag → skipping version bump"
-  exit 0
-fi
-
-echo "DEBUG: commits array"
-printf '%s\n' "${COMMITS_ARRAY[@]}"
-
 ############################################
 # PACKAGE-AWARE VERSIONING
 ############################################
 declare -A PACKAGE_BUMPS=()
 
-for commit_msg in "${COMMITS_ARRAY[@]}"; do
-  bump_type="$(get_bump_type "$commit_msg" "$CONFIG_FILE" 2>/dev/null || echo "")"
-  [[ -z "$bump_type" ]] && continue
+for package in $(list_packages "$CONFIG_FILE"); do
+  last_tag="$(get_last_package_tag "$package")"
 
-  package_name="$(get_package_from_commit "$commit_msg" "$CONFIG_FILE" 2>/dev/null || echo "")"
-  [[ -z "$package_name" ]] && continue
-
-  current_bump="${PACKAGE_BUMPS[$package_name]:-}"
-  if should_override_bump "$current_bump" "$bump_type"; then
-    PACKAGE_BUMPS["$package_name"]="$bump_type"
+  if [[ -z "$last_tag" ]]; then
+    log "📦 $package: no previous tag → scanning all commits"
+    mapfile -t commits < <(git log --pretty=format:%s 2>/dev/null || true)
+  else
+    log "📦 $package: last tag = $last_tag"
+    mapfile -t commits < <(git log "${last_tag}..HEAD" --pretty=format:%s 2>/dev/null || true)
   fi
+
+  for commit_msg in "${commits[@]}"; do
+    commit_package="$(get_package_from_commit "$commit_msg" "$CONFIG_FILE" 2>/dev/null || echo "")"
+    [[ "$commit_package" != "$package" ]] && continue
+
+    bump_type="$(get_bump_type "$commit_msg" "$CONFIG_FILE" 2>/dev/null || echo "")"
+    [[ -z "$bump_type" ]] && continue
+
+    current="${PACKAGE_BUMPS[$package]:-}"
+    if should_override_bump "$current" "$bump_type"; then
+      PACKAGE_BUMPS["$package"]="$bump_type"
+    fi
+  done
 done
 
 if [[ "${#PACKAGE_BUMPS[@]}" -eq 0 ]]; then
@@ -93,51 +83,42 @@ fi
 ############################################
 # APPLY PER PACKAGE
 ############################################
-for package_name in "${!PACKAGE_BUMPS[@]}"; do
-  bump_type="${PACKAGE_BUMPS[$package_name]}"
+for package in "${!PACKAGE_BUMPS[@]}"; do
+  bump="${PACKAGE_BUMPS[$package]}"
 
-  if ! is_valid_package "$package_name" "$CONFIG_FILE"; then
-    log "⚠️ Skipping invalid package: $package_name"
+  if ! is_valid_package "$package" "$CONFIG_FILE"; then
+    log "⚠️ Invalid package: $package"
     continue
   fi
 
-  version_file="$(get_package_version_file "$package_name" "$CONFIG_FILE" 2>/dev/null || echo "")"
-if [[ -z "$version_file" ]]; then
-  log "⚠️ Skipping $package_name: versionFile not configured"
-  continue
-fi
+  version_file="$(get_package_version_file "$package" "$CONFIG_FILE" 2>/dev/null || echo "")"
+  if [[ -z "$version_file" ]]; then
+    log "⚠️ $package has no versionFile configured"
+    continue
+  fi
 
-if [[ ! -f "$version_file" ]]; then
-  log "ℹ️ Creating VERSION file for $package_name"
-  mkdir -p "$(dirname "$version_file")"
-  echo "0.0.0" > "$version_file"
-fi
+  if [[ ! -f "$version_file" ]]; then
+    log "ℹ️ Creating VERSION file for $package"
+    mkdir -p "$(dirname "$version_file")"
+    echo "0.0.0" > "$version_file"
+  fi
 
 
   current_version="$(cat "$version_file" 2>/dev/null || echo "")"
-  if [[ -z "$current_version" ]]; then
-    log "⚠️ Skipping $package_name: empty version file"
-    continue
-  fi
+  new_version="$(bump_semver "$current_version" "$bump")"
 
-  new_version="$(bump_semver "$current_version" "$bump_type")"
-  if [[ -z "$new_version" ]]; then
-    log "⚠️ Failed to bump version for $package_name (current: $current_version)"
-    continue
-  fi
-
-  log "📦 $package_name: $current_version → $new_version ($bump_type)"
+  log "📦 $package: $current_version → $new_version ($bump)"
 
   if [[ "$DRY_RUN" == "true" ]]; then
-    log "💧 DRY-RUN: $package_name would bump to $new_version"
+    log "💧 DRY-RUN: skip write/tag for $package"
     continue
   fi
 
   echo "$new_version" > "$version_file"
 
   run_cmd git add "$version_file"
-  run_cmd git commit -m "chore(release): bump ${package_name} to ${new_version}" || log "⚠️ Nothing to commit for $package_name"
-  run_cmd git tag "${package_name}-v${new_version}" || log "⚠️ Tag already exists: ${package_name}-v${new_version}"
+  run_cmd git commit -m "chore(release): bump ${package} to ${new_version}" || log "⚠️ Nothing to commit for $package"
+  run_cmd git tag "${package}-v${new_version}" || log "⚠️ Tag already exists: ${package}-v${new_version}"
 done
 
 ############################################

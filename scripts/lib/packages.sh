@@ -54,3 +54,8 @@ is_meta_scope() {
   yq -e ".commit.scopes.meta[] | select(. == \"${scope}\")" \
     "$config_file" >/dev/null 2>&1
 }
+
+get_last_package_tag() {
+  local package="$1"
+  git tag --list "${package}-v*" --sort=-creatordate | head -n 1
+}
