@@ -68,35 +68,40 @@ PREV_TAG=$(git describe --tags --abbrev=0 "${TAG}^" 2>/dev/null || echo "")
 # COLLECT COMMITS
 ############################################
 if [[ -n "$PREV_TAG" ]]; then
-  COMMITS=$(git log "$PREV_TAG..$TAG" --pretty=format:"%s" --no-merges)
+  mapfile -t COMMITS_ARRAY < <(git log "$PREV_TAG..$TAG" --pretty=format:"%s" --no-merges 2>/dev/null || true)
 else
-  COMMITS=$(git log "$TAG" --pretty=format:"%s" --no-merges)
+  mapfile -t COMMITS_ARRAY < <(git log "$TAG" --pretty=format:"%s" --no-merges 2>/dev/null || true)
 fi
 
-while read -r line; do
+############################################
+# CLASSIFY COMMITS
+############################################
+for line in "${COMMITS_ARRAY[@]}"; do
   for type in "${ALLOWED_TYPES[@]}"; do
     if [[ "$line" =~ ^$type\(.+\) ]]; then
       RELEASE_COMMITS[$type]+="- $line"$'\n'
       break
     fi
   done
-done <<< "$COMMITS"
+done
 
 ############################################
 # RENDER RELEASE NOTES
 ############################################
-echo "# $TITLE"
-echo ""
-echo "## Changes"
-echo ""
+{
+  echo "# $TITLE"
+  echo ""
+  echo "## Changes"
+  echo ""
 
-for type in "${ALLOWED_TYPES[@]}"; do
-  content="${RELEASE_COMMITS[$type]:-}"
-  if [[ -n "$content" ]]; then
-    echo "### ${RELEASE_TITLES[$type]}"
-    echo ""
-    echo -e "$content"
-  fi
-done
+  for type in "${ALLOWED_TYPES[@]}"; do
+    content="${RELEASE_COMMITS[$type]:-}"
+    if [[ -n "$content" ]]; then
+      echo "### ${RELEASE_TITLES[$type]}"
+      echo ""
+      echo -e "$content"
+    fi
+  done
+} > RELEASE.md
 
 log "✅ RELEASE.md generated"

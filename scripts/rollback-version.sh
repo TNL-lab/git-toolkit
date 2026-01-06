@@ -44,13 +44,23 @@ if [[ -z "$VERSION_FILE" ]]; then
   exit 1
 fi
 
+[[ -f "$VERSION_FILE" ]] || { echo "❌ VERSION file not found: $VERSION_FILE"; exit 1; }
+
 ############################################
 # DRY-RUN CHECK
 ############################################
-if [[ "${DRY_RUN:-false}" == "true" ]]; then
+DRY_RUN="${DRY_RUN:-false}"
+
+if [[ "$DRY_RUN" == "true" ]]; then
   log "💧 DRY-RUN: VERSION would be rolled back to $TARGET_VERSION"
   exit 0
 fi
+
+############################################
+# CURRENT BRANCH
+############################################
+CURRENT_BRANCH=$(git symbolic-ref --short HEAD)
+[[ -n "$CURRENT_BRANCH" ]] || { echo "❌ Cannot detect current branch"; exit 1; }
 
 ############################################
 # APPLY ROLLBACK

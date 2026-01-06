@@ -64,10 +64,9 @@ fi
 ############################################
 # LIST TAGS
 ############################################
-TAGS="$(git tag --list "${TAG_PREFIX}-*" --sort=version:refname)"
-
-if [[ -z "$TAGS" ]]; then
-  run_cmd echo "⚠️ No tags found with prefix ${TAG_PREFIX}"
+mapfile -t TAGS_ARRAY < <(git tag --list "${TAG_PREFIX}-*" --sort=version:refname)
+if [[ "${#TAGS_ARRAY[@]}" -eq 0 ]]; then
+  log "⚠️ No tags found with prefix ${TAG_PREFIX}"
   exit 0
 fi
 
@@ -82,8 +81,9 @@ echo "" >> "$OUTPUT"
 ############################################
 PREV_TAG=""
 
-for TAG in $TAGS; do
-  TITLE="$(git tag -l "$TAG" -n99 | sed "s/^${TAG}[[:space:]]*//")"
+for TAG in "${TAGS_ARRAY[@]}"; do
+  TITLE="$(git tag -l "$TAG" -n99 | cut -f2- -d$' ')"
+  TITLE="${TITLE:-$TAG}"
 
   echo "## $TITLE" >> "$OUTPUT"
   echo "" >> "$OUTPUT"
@@ -91,12 +91,10 @@ for TAG in $TAGS; do
   if [[ -n "$PREV_TAG" ]]; then
     RANGE="${PREV_TAG}..${TAG}"
   else
-    RANGE="$TAG"
+    RANGE="${TAG}^..${TAG}"
   fi
 
-  run_cmd git log "$RANGE" \
-    --pretty=format:"- %s" \
-    --no-merges >> "$OUTPUT"
+  git log "$RANGE" --pretty=format:"- %s" --no-merges >> "$OUTPUT" 2>/dev/null || true
 
   echo "" >> "$OUTPUT"
 

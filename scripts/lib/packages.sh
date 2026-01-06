@@ -9,7 +9,9 @@ get_package_version_file() {
   local package="$1"
   local config_file="$2"
 
-  yq -r ".packages.${package}.versionFile // \"\"" "$config_file"
+  local version_file
+  version_file="$(yq -r ".packages.${package}.versionFile // \"\"" "$config_file" 2>/dev/null || echo "")"
+  echo "$version_file"
 }
 
 list_packages() {

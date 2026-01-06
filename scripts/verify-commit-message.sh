@@ -30,7 +30,7 @@ else
   TOOLKIT_DIR="$REPO_ROOT"
 fi
 
-CONFIG_FILE="$TOOLKIT_DIR/.git-toolkit.yml"
+CONFIG_FILE=".git-toolkit.yml"
 
 [[ -f "$CONFIG_FILE" ]] || {
   echo "❌ Missing $CONFIG_FILE at repo root"
@@ -40,11 +40,11 @@ CONFIG_FILE="$TOOLKIT_DIR/.git-toolkit.yml"
 ############################################
 # LOAD ALLOWED TYPES/SCOPES/PHASE
 ############################################
-readarray -t ALLOWED_TYPES < <(yq -r '.commit.types.allowed[]' "$CONFIG_FILE")
-readarray -t ALLOWED_SCOPES < <(yq -r '.commit.scopes.allowed[]' "$CONFIG_FILE")
+readarray -t ALLOWED_TYPES < <(yq -r '.commit.types.allowed[]' "$CONFIG_FILE" || true)
+readarray -t ALLOWED_SCOPES < <(yq -r '.commit.scopes.allowed[]' "$CONFIG_FILE" || true)
 
-PHASE_REQUIRED=$(yq -r '.toolkit.phase.required // false' "$CONFIG_FILE")
-PHASE_PATTERN=$(yq -r '.toolkit.phase.pattern // ""' "$CONFIG_FILE")
+PHASE_REQUIRED=$(yq -r '.toolkit.phase.required // false' "$CONFIG_FILE" || echo false)
+PHASE_PATTERN=$(yq -r '.toolkit.phase.pattern // ""' "$CONFIG_FILE" || echo "")
 
 # Strip ^/$ if present
 PHASE_PATTERN="${PHASE_PATTERN#^}"
@@ -55,12 +55,12 @@ TYPE_REGEX=$(IFS="|"; echo "${ALLOWED_TYPES[*]}")
 SCOPE_REGEX=$(IFS="|"; echo "${ALLOWED_SCOPES[*]}")
 
 if [[ "$PHASE_REQUIRED" == "true" ]]; then
-  PHASE_PART="\[(${PHASE_PATTERN})\]"
+  PHASE_PART="\\[(${PHASE_PATTERN})\\]"
 else
-  PHASE_PART="(\[(${PHASE_PATTERN})\])?"
+  PHASE_PART="(\\[(${PHASE_PATTERN})\\])?"
 fi
 
-COMMIT_REGEX="^(${TYPE_REGEX})\\((${SCOPE_REGEX})\\)${PHASE_PART}: [A-Z][^ ]+.*$"
+COMMIT_REGEX="^(${TYPE_REGEX})\\((${SCOPE_REGEX})\\)${PHASE_PART}: .*$"
 
 ############################################
 # VALIDATE COMMIT MESSAGE

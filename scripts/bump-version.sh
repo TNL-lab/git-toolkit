@@ -107,8 +107,17 @@ for package_name in "${!PACKAGE_BUMPS[@]}"; do
     continue
   fi
 
-  current_version="$(cat "$version_file")"
+  current_version="$(cat "$version_file" 2>/dev/null || echo "")"
+  if [[ -z "$current_version" ]]; then
+    log "⚠️ VERSION file empty: $version_file"
+    continue
+  fi
+
   new_version="$(bump_semver "$current_version" "$bump_type")"
+  if [[ -z "$new_version" ]]; then
+    log "⚠️ Failed to bump version for $package_name (current: $current_version)"
+    continue
+  fi
 
   log "📦 $package_name: $current_version → $new_version ($bump_type)"
 
@@ -120,8 +129,8 @@ for package_name in "${!PACKAGE_BUMPS[@]}"; do
   echo "$new_version" > "$version_file"
 
   run_cmd git add "$version_file"
-  run_cmd git commit -m "chore(release): bump ${package_name} to ${new_version}"
-  run_cmd git tag "${package_name}-v${new_version}"
+  run_cmd git commit -m "chore(release): bump ${package_name} to ${new_version}" || log "⚠️ Nothing to commit for $package_name"
+  run_cmd git tag "${package_name}-v${new_version}" || log "⚠️ Tag already exists: ${package_name}-v${new_version}"
 done
 
 ############################################
