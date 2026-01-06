@@ -5,13 +5,14 @@ set -euo pipefail
 # INIT
 ############################################
 REPO_ROOT="$(git rev-parse --show-toplevel)"
-
+  echo " REPO_ROOT: $REPO_ROOT"
 TEMPLATE="$REPO_ROOT/templates/CHANGELOG.template.md"
+
 CONFIG_FILE=".git-toolkit.yml"
 OUTPUT="CHANGELOG.md"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
+  echo " SCRIPT_DIR: $SCRIPT_DIR"
 # Load libs
 source "$SCRIPT_DIR/lib/config.sh"
 source "$SCRIPT_DIR/lib/runner.sh"
