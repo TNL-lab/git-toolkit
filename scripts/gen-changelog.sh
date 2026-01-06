@@ -4,13 +4,13 @@ set -euo pipefail
 ############################################
 # INIT
 ############################################
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(git rev-parse --show-toplevel)"
-cd "$REPO_ROOT"
 
+TEMPLATE="$REPO_ROOT/templates/CHANGELOG.template.md"
 CONFIG_FILE=".git-toolkit.yml"
-TEMPLATE="$SCRIPT_DIR/templates/CHANGELOG.template.md"
 OUTPUT="CHANGELOG.md"
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Load libs
 source "$SCRIPT_DIR/lib/config.sh"
@@ -34,6 +34,7 @@ command -v yq >/dev/null 2>&1 || {
   exit 1
 }
 
+cd "$REPO_ROOT"
 ############################################
 # READ CONFIG
 ############################################
