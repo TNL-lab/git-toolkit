@@ -111,6 +111,7 @@ for package in "${!PACKAGE_BUMPS[@]}"; do
 
   current_version="$(cat "$version_file" 2>/dev/null || echo "")"
   new_version="$(bump_semver "$current_version" "$bump")"
+  TAG_NAME="${package}-v${new_version}"
 
   log "📦 $package: $current_version → $new_version ($bump)"
 
@@ -124,9 +125,12 @@ for package in "${!PACKAGE_BUMPS[@]}"; do
   run_cmd git add "$version_file"
   run_cmd git commit -m "chore(release): bump ${package} to ${new_version}" || log "⚠️ Nothing to commit for $package"
 
-  tag="${package}-v${new_version}"
-  run_cmd git tag "$tag" || log "⚠️ Tag already exists: $tag"
-  CREATED_TAGS+=("$tag")
+  if git rev-parse "$TAG_NAME" >/dev/null 2>&1; then
+    log "⚠️ Tag $TAG_NAME already exists, skipping tag creation"
+  else
+    run_cmd git tag "$TAG_NAME"
+    CREATED_TAGS+=("$TAG_NAME")
+  fi
 done
 
 ############################################
