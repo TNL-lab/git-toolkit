@@ -13,7 +13,8 @@ get_package_version_file() {
 }
 
 list_packages() {
-  yq -r '.packages | keys[]' "$CONFIG_FILE"
+  local config_file="$1"
+  yq -r '.packages | keys[]' "$config_file"
 }
 
 is_valid_package() {

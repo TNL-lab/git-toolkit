@@ -25,12 +25,25 @@ source "$SCRIPT_DIR/lib/config.sh"
 source "$SCRIPT_DIR/lib/runner.sh"
 source "$SCRIPT_DIR/lib/packages.sh"
 
+############################################
+# CONFIG
+############################################
+DRY_RUN="$(yq -r '.release.dryRun // ""' "$CONFIG_FILE")"
+DRY_RUN="${DRY_RUN,,}" # normalize to lowercase
+
 log "Dry-run mode: $DRY_RUN"
 
 ############################################
 # LOAD COMMITS SINCE LAST TAG
 ############################################
-run_cmd git fetch --tags
+log "Fetching tags..."
+set +e
+git fetch --tags 2>&1
+FE=$?
+set -e
+if [[ $FE -ne 0 ]]; then
+  log "⚠️ git fetch --tags failed (exit $FE), continuing anyway"
+fi
 
 LAST_TAG="$(git tag --sort=-creatordate | head -n 1)"
 
@@ -71,6 +84,12 @@ fi
 ############################################
 for package_name in "${!PACKAGE_BUMPS[@]}"; do
   bump_type="${PACKAGE_BUMPS[$package_name]}"
+
+  if ! is_valid_package "$package_name" "$CONFIG_FILE"; then
+    log "⚠️ Skipping invalid package: $package_name"
+    continue
+  fi
+
   version_file="$(get_package_version_file "$package_name" "$CONFIG_FILE")"
 
   if [[ -z "$version_file" ]]; then
