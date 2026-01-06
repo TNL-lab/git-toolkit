@@ -34,6 +34,11 @@ DRY_RUN="${DRY_RUN,,}" # normalize to lowercase
 log "Dry-run mode: $DRY_RUN"
 
 ############################################
+# INTERNAL STATE
+############################################
+CREATED_TAGS=()
+
+############################################
 # FETCH LAST TAG
 ############################################
 log "Fetching tags..."
@@ -118,14 +123,21 @@ for package in "${!PACKAGE_BUMPS[@]}"; do
 
   run_cmd git add "$version_file"
   run_cmd git commit -m "chore(release): bump ${package} to ${new_version}" || log "⚠️ Nothing to commit for $package"
-  run_cmd git tag "${package}-v${new_version}" || log "⚠️ Tag already exists: ${package}-v${new_version}"
+
+  tag="${package}-v${new_version}"
+  run_cmd git tag "$tag" || log "⚠️ Tag already exists: $tag"
+  CREATED_TAGS+=("$tag")
 done
 
 ############################################
 # PUSH
 ############################################
 if [[ "$DRY_RUN" != "true" ]]; then
-  run_cmd git push origin HEAD --tags
+  run_cmd git push origin HEAD
+
+  for tag in "${CREATED_TAGS[@]}"; do
+    run_cmd git push origin "$tag"
+  done
 fi
 
 log "✅ Multi-package version bump completed"
