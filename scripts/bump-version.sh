@@ -34,7 +34,7 @@ DRY_RUN="${DRY_RUN,,}" # normalize to lowercase
 log "Dry-run mode: $DRY_RUN"
 
 ############################################
-# LOAD COMMITS SINCE LAST TAG
+# FETCH LAST TAG
 ############################################
 log "Fetching tags..."
 set +e
@@ -47,6 +47,10 @@ fi
 
 LAST_TAG="$(git tag --sort=-creatordate | head -n 1)"
 
+
+############################################
+# LOAD COMMITS
+############################################
 if [[ -z "$LAST_TAG" ]]; then
   log "No tag found → scanning all commits"
   mapfile -t COMMITS_ARRAY < <(git log --pretty=format:%s 2>/dev/null || true)
@@ -98,15 +102,17 @@ for package_name in "${!PACKAGE_BUMPS[@]}"; do
   fi
 
   version_file="$(get_package_version_file "$package_name" "$CONFIG_FILE" 2>/dev/null || echo "")"
-  if [[ -z "$version_file" || ! -f "$version_file" ]]; then
-    log "⚠️ Skipping $package_name: version file missing"
-    continue
-  fi
+if [[ -z "$version_file" ]]; then
+  log "⚠️ Skipping $package_name: versionFile not configured"
+  continue
+fi
 
-  if [[ ! -f "$version_file" ]]; then
-    log "⚠️ VERSION file not found: $version_file"
-    continue
-  fi
+if [[ ! -f "$version_file" ]]; then
+  log "ℹ️ Creating VERSION file for $package_name"
+  mkdir -p "$(dirname "$version_file")"
+  echo "0.0.0" > "$version_file"
+fi
+
 
   current_version="$(cat "$version_file" 2>/dev/null || echo "")"
   if [[ -z "$current_version" ]]; then
