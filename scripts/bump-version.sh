@@ -77,7 +77,7 @@ for commit_msg in "${COMMITS_ARRAY[@]}"; do
   if should_override_bump "$current_bump" "$bump_type"; then
     PACKAGE_BUMPS["$package_name"]="$bump_type"
   fi
-done <<< "$COMMITS"
+done
 
 if [[ "${#PACKAGE_BUMPS[@]}" -eq 0 ]]; then
   log "No package requires version bump"
