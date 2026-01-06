@@ -60,20 +60,22 @@ if [[ "${#COMMITS_ARRAY[@]}" -eq 0 ]]; then
   exit 0
 fi
 
+echo "DEBUG: commits array"
+printf '%s\n' "${COMMITS_ARRAY[@]}"
+
 ############################################
 # PACKAGE-AWARE VERSIONING
 ############################################
 declare -A PACKAGE_BUMPS=()
 
 for commit_msg in "${COMMITS_ARRAY[@]}"; do
-  bump_type="$(get_bump_type "$commit_msg" "$CONFIG_FILE")"
+  bump_type="$(get_bump_type "$commit_msg" "$CONFIG_FILE" 2>/dev/null || echo "")"
   [[ -z "$bump_type" ]] && continue
 
-  package_name="$(get_package_from_commit "$commit_msg" "$CONFIG_FILE")"
+  package_name="$(get_package_from_commit "$commit_msg" "$CONFIG_FILE" 2>/dev/null || echo "")"
   [[ -z "$package_name" ]] && continue
 
   current_bump="${PACKAGE_BUMPS[$package_name]:-}"
-
   if should_override_bump "$current_bump" "$bump_type"; then
     PACKAGE_BUMPS["$package_name"]="$bump_type"
   fi
@@ -95,10 +97,9 @@ for package_name in "${!PACKAGE_BUMPS[@]}"; do
     continue
   fi
 
-  version_file="$(get_package_version_file "$package_name" "$CONFIG_FILE")"
-
-  if [[ -z "$version_file" ]]; then
-    log "⚠️ No versionFile configured for package '$package_name'"
+  version_file="$(get_package_version_file "$package_name" "$CONFIG_FILE" 2>/dev/null || echo "")"
+  if [[ -z "$version_file" || ! -f "$version_file" ]]; then
+    log "⚠️ Skipping $package_name: version file missing"
     continue
   fi
 
@@ -109,7 +110,7 @@ for package_name in "${!PACKAGE_BUMPS[@]}"; do
 
   current_version="$(cat "$version_file" 2>/dev/null || echo "")"
   if [[ -z "$current_version" ]]; then
-    log "⚠️ VERSION file empty: $version_file"
+    log "⚠️ Skipping $package_name: empty version file"
     continue
   fi
 
