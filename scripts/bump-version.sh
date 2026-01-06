@@ -28,7 +28,7 @@ source "$SCRIPT_DIR/lib/packages.sh"
 ############################################
 # CONFIG
 ############################################
-DRY_RUN="$(yq -r '.release.dryRun // false' "$CONFIG_FILE" || echo "false")"
+DRY_RUN="$(yq -r '.release.dryRun // "false"' "$CONFIG_FILE" || echo "false")"
 DRY_RUN="${DRY_RUN,,}" # normalize to lowercase
 
 log "Dry-run mode: $DRY_RUN"
@@ -49,13 +49,15 @@ LAST_TAG="$(git tag --sort=-creatordate | head -n 1)"
 
 if [[ -z "$LAST_TAG" ]]; then
   log "No tag found → scanning all commits"
-  COMMITS="$(git log --pretty=format:%s || true )"
+  mapfile -t COMMITS_ARRAY < <(git log --pretty=format:%s 2>/dev/null || true)
 else
   log "Last tag: $LAST_TAG"
-  COMMITS="$(git log "${LAST_TAG}..HEAD" --pretty=format:%s || true)"
+  mapfile -t COMMITS_ARRAY < <(git log "${LAST_TAG}..HEAD" --pretty=format:%s 2>/dev/null || true)
 fi
 
-if [[ -z "$COMMITS" ]]; then
+mapfile -t COMMITS_ARRAY < <(git log "${LAST_TAG}..HEAD" --pretty=format:%s 2>/dev/null || true)
+
+if [[ "${#COMMITS_ARRAY[@]}" -eq 0 ]]; then
   log "No new commits since last tag → skipping version bump"
   exit 0
 fi
@@ -65,7 +67,7 @@ fi
 ############################################
 declare -A PACKAGE_BUMPS=()
 
-while read -r commit_msg; do
+for commit_msg in "${COMMITS_ARRAY[@]}"; do
   bump_type="$(get_bump_type "$commit_msg" "$CONFIG_FILE")"
   [[ -z "$bump_type" ]] && continue
 
