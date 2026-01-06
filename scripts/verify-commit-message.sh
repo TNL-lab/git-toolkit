@@ -22,7 +22,15 @@ COMMIT_MSG="$(echo "$COMMIT_MSG" | tr -d '\n')"
 # REPO & CONFIG
 ############################################
 REPO_ROOT="$(git rev-parse --show-toplevel)"
-CONFIG_FILE="$REPO_ROOT/.git-toolkit.yml"
+cd "$REPO_ROOT"
+
+if [[ -n "${TOOLKIT_ROOT:-}" ]]; then
+  TOOLKIT_DIR="$(cd "$TOOLKIT_ROOT" && pwd)"
+else
+  TOOLKIT_DIR="$REPO_ROOT"
+fi
+
+CONFIG_FILE="$TOOLKIT_DIR/.git-toolkit.yml"
 
 [[ -f "$CONFIG_FILE" ]] || {
   echo "❌ Missing $CONFIG_FILE at repo root"
@@ -36,7 +44,7 @@ readarray -t ALLOWED_TYPES < <(yq -r '.commit.types.allowed[]' "$CONFIG_FILE")
 readarray -t ALLOWED_SCOPES < <(yq -r '.commit.scopes.allowed[]' "$CONFIG_FILE")
 
 PHASE_REQUIRED=$(yq -r '.toolkit.phase.required // false' "$CONFIG_FILE")
-PHASE_PATTERN=$(yq -r '.toolkit.phase.pattern // empty' "$CONFIG_FILE")
+PHASE_PATTERN=$(yq -r '.toolkit.phase.pattern // ""' "$CONFIG_FILE")
 
 # Strip ^/$ if present
 PHASE_PATTERN="${PHASE_PATTERN#^}"

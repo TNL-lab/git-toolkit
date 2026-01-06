@@ -1,6 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT"
+
+if [[ -n "${TOOLKIT_ROOT:-}" ]]; then
+  TOOLKIT_DIR="$(cd "$TOOLKIT_ROOT" && pwd)"
+else
+  TOOLKIT_DIR="$REPO_ROOT"
+fi
+
 # Root config file
 CONFIG_FILE=".git-toolkit.yml"
 

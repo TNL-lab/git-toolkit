@@ -4,11 +4,22 @@ set -euo pipefail
 ############################################
 # INIT
 ############################################
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 cd "$REPO_ROOT"
 
+if [[ -n "${TOOLKIT_ROOT:-}" ]]; then
+  TOOLKIT_DIR="$(cd "$TOOLKIT_ROOT" && pwd)"
+else
+  TOOLKIT_DIR="$REPO_ROOT"
+fi
+
 CONFIG_FILE=".git-toolkit.yml"
+
+if [[ -n "${TOOLKIT_SCRIPTS:-}" ]]; then
+  SCRIPT_DIR="$(cd "$TOOLKIT_SCRIPTS" && pwd)"
+else
+  SCRIPT_DIR="$TOOLKIT_DIR/scripts"
+fi
 
 source "$SCRIPT_DIR/lib/config.sh"
 source "$SCRIPT_DIR/lib/runner.sh"
@@ -41,7 +52,7 @@ declare -A RELEASE_TITLES
 declare -A RELEASE_COMMITS
 
 for type in "${ALLOWED_TYPES[@]}"; do
-  RELEASE_TITLES[$type]=$(get_semantic_group_title "$type")
+  RELEASE_TITLES[$type]=$(get_semantic_group_title "$type" "$CONFIG_FILE")
   RELEASE_COMMITS[$type]=""
 done
 

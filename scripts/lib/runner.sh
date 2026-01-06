@@ -18,8 +18,8 @@ run_cmd() {
 ############################################
 get_semantic_group_title() {
   local type="$1"
-
-  yq -r ".release.semanticGroups.${type} // empty" "$CONFIG_FILE"
+  local config_file="$2"
+  yq -r ".release.semanticGroups.${type} // \"\"" "$config_file"
 }
 
 ############################################
@@ -67,11 +67,12 @@ extract_type() {
 ############################################
 get_bump_type() {
   local commit="$1"
+  local config_file="$2"
   local type
   local breaking_keyword
   local bump
 
-  breaking_keyword="$(yq -r '.release.breakingChange.keyword' "$CONFIG_FILE")"
+  breaking_keyword="$(yq -r '.release.breakingChange.keyword' "$config_file")"
 
   if grep -q "$breaking_keyword" <<<"$commit"; then
     echo "major"
@@ -81,7 +82,7 @@ get_bump_type() {
   type="$(extract_type "$commit")"
   [[ -z "$type" ]] && return
 
-  bump="$(yq -r ".release.versionBumpRules.${type} // empty" "$CONFIG_FILE")"
+  bump="$(yq -r ".release.versionBumpRules.${type} // \"\"" "$config_file")"
 
   [[ "$bump" != "none" ]] && echo "$bump"
 }

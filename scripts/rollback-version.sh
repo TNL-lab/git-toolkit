@@ -4,11 +4,22 @@ set -euo pipefail
 ############################################
 # INIT
 ############################################
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 cd "$REPO_ROOT"
 
+if [[ -n "${TOOLKIT_ROOT:-}" ]]; then
+  TOOLKIT_DIR="$(cd "$TOOLKIT_ROOT" && pwd)"
+else
+  TOOLKIT_DIR="$REPO_ROOT"
+fi
+
 CONFIG_FILE=".git-toolkit.yml"
+
+if [[ -n "${TOOLKIT_SCRIPTS:-}" ]]; then
+  SCRIPT_DIR="$(cd "$TOOLKIT_SCRIPTS" && pwd)"
+else
+  SCRIPT_DIR="$TOOLKIT_DIR/scripts"
+fi
 
 source "$SCRIPT_DIR/lib/config.sh"
 source "$SCRIPT_DIR/lib/runner.sh"
@@ -26,7 +37,7 @@ fi
 ############################################
 # LOAD VERSION FILE FROM CONFIG
 ############################################
-VERSION_FILE="$(yq -r '.version.rootFile // empty' "$CONFIG_FILE")"
+VERSION_FILE="$(yq -r '.version.rootFile // ""' "$CONFIG_FILE")"
 
 if [[ -z "$VERSION_FILE" ]]; then
   echo "❌ version.rootFile not defined in $CONFIG_FILE"

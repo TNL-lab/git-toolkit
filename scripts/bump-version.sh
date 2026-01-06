@@ -4,11 +4,22 @@ set -euo pipefail
 ############################################
 # INIT
 ############################################
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 cd "$REPO_ROOT"
 
+if [[ -n "${TOOLKIT_ROOT:-}" ]]; then
+  TOOLKIT_DIR="$(cd "$TOOLKIT_ROOT" && pwd)"
+else
+  TOOLKIT_DIR="$REPO_ROOT"
+fi
+
 CONFIG_FILE=".git-toolkit.yml"
+
+if [[ -n "${TOOLKIT_SCRIPTS:-}" ]]; then
+  SCRIPT_DIR="$(cd "$TOOLKIT_SCRIPTS" && pwd)"
+else
+  SCRIPT_DIR="$TOOLKIT_DIR/scripts"
+fi
 
 source "$SCRIPT_DIR/lib/config.sh"
 source "$SCRIPT_DIR/lib/runner.sh"
@@ -37,10 +48,10 @@ fi
 declare -A PACKAGE_BUMPS=()
 
 while read -r commit_msg; do
-  bump_type="$(get_bump_type "$commit_msg")"
+  bump_type="$(get_bump_type "$commit_msg" "$CONFIG_FILE")"
   [[ -z "$bump_type" ]] && continue
 
-  package_name="$(get_package_from_commit "$commit_msg")"
+  package_name="$(get_package_from_commit "$commit_msg" "$CONFIG_FILE")"
   [[ -z "$package_name" ]] && continue
 
   current_bump="${PACKAGE_BUMPS[$package_name]:-}"
@@ -60,7 +71,7 @@ fi
 ############################################
 for package_name in "${!PACKAGE_BUMPS[@]}"; do
   bump_type="${PACKAGE_BUMPS[$package_name]}"
-  version_file="$(get_package_version_file "$package_name")"
+  version_file="$(get_package_version_file "$package_name" "$CONFIG_FILE")"
 
   if [[ -z "$version_file" ]]; then
     log "⚠️ No versionFile configured for package '$package_name'"
