@@ -55,8 +55,6 @@ else
   mapfile -t COMMITS_ARRAY < <(git log "${LAST_TAG}..HEAD" --pretty=format:%s 2>/dev/null || true)
 fi
 
-mapfile -t COMMITS_ARRAY < <(git log "${LAST_TAG}..HEAD" --pretty=format:%s 2>/dev/null || true)
-
 if [[ "${#COMMITS_ARRAY[@]}" -eq 0 ]]; then
   log "No new commits since last tag → skipping version bump"
   exit 0
