@@ -48,8 +48,8 @@ command -v yq >/dev/null 2>&1 || {
 ############################################
 # READ CONFIG
 ############################################
-PHASE_ENABLED="$(yq -r '.toolkit.phase.enabled // false' "$CONFIG_FILE")"
-TAG_PREFIX="$(yq -r '.toolkit.phase.tagPrefix // empty' "$CONFIG_FILE")"
+PHASE_ENABLED="$(yq -r '.toolkit.phase.enabled // "false"' "$CONFIG_FILE")"
+TAG_PREFIX="$(yq -r '.toolkit.phase.tagPrefix // ""' "$CONFIG_FILE")"
 
 if [[ "$PHASE_ENABLED" != "true" ]]; then
   log "Phase tagging disabled → skip changelog generation"
