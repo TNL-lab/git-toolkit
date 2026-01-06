@@ -13,8 +13,8 @@ TEMPLATE="$REPO_ROOT/templates/CHANGELOG.template.md"
 OUTPUT="CHANGELOG.md"
 
 # Load libs
-source "$REPO_ROOT/lib/config.sh"
-source "$REPO_ROOT/lib/runner.sh"
+source "$SCRIPT_DIR/lib/config.sh"
+source "$SCRIPT_DIR/lib/runner.sh"
 
 ############################################
 # VALIDATIONS
