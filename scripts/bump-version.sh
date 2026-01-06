@@ -28,7 +28,7 @@ source "$SCRIPT_DIR/lib/packages.sh"
 ############################################
 # CONFIG
 ############################################
-DRY_RUN="$(yq -r '.release.dryRun // ""' "$CONFIG_FILE")"
+DRY_RUN="$(yq -r '.release.dryRun // false' "$CONFIG_FILE" || echo "false")"
 DRY_RUN="${DRY_RUN,,}" # normalize to lowercase
 
 log "Dry-run mode: $DRY_RUN"
