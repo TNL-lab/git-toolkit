@@ -49,10 +49,15 @@ LAST_TAG="$(git tag --sort=-creatordate | head -n 1)"
 
 if [[ -z "$LAST_TAG" ]]; then
   log "No tag found → scanning all commits"
-  COMMITS="$(git log --pretty=format:%s)"
+  COMMITS="$(git log --pretty=format:%s || true )"
 else
   log "Last tag: $LAST_TAG"
-  COMMITS="$(git log "${LAST_TAG}..HEAD" --pretty=format:%s)"
+  COMMITS="$(git log "${LAST_TAG}..HEAD" --pretty=format:%s || true)"
+fi
+
+if [[ -z "$COMMITS" ]]; then
+  log "No new commits since last tag → skipping version bump"
+  exit 0
 fi
 
 ############################################
