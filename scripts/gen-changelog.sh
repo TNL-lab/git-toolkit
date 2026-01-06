@@ -15,7 +15,7 @@ fi
 
 CONFIG_FILE=".git-toolkit.yml"
 OUTPUT="CHANGELOG.md"
-TEMPLATE="$TOOLKIT_ROOT/templates/CHANGELOG.template.md"
+TEMPLATE="$TOOLKIT_DIR/templates/CHANGELOG.template.md"
 
 if [[ -n "${TOOLKIT_SCRIPTS:-}" ]]; then
   SCRIPT_DIR="$(cd "$TOOLKIT_SCRIPTS" && pwd)"
