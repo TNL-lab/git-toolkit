@@ -5,14 +5,24 @@ set -euo pipefail
 # INIT
 ############################################
 REPO_ROOT="$(git rev-parse --show-toplevel)"
-  echo " REPO_ROOT: $REPO_ROOT"
-TEMPLATE="$REPO_ROOT/templates/CHANGELOG.template.md"
+cd "$REPO_ROOT"
+
+if [[ -n "${TOOLKIT_ROOT:-}" ]]; then
+  TOOLKIT_DIR="$(cd "$TOOLKIT_ROOT" && pwd)"
+else
+  TOOLKIT_DIR="$REPO_ROOT"
+fi
 
 CONFIG_FILE=".git-toolkit.yml"
 OUTPUT="CHANGELOG.md"
+TEMPLATE="$TOOLKIT_ROOT/templates/CHANGELOG.template.md"
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-  echo " SCRIPT_DIR: $SCRIPT_DIR"
+if [[ -n "${TOOLKIT_SCRIPTS:-}" ]]; then
+  SCRIPT_DIR="$(cd "$TOOLKIT_SCRIPTS" && pwd)"
+else
+  SCRIPT_DIR="$TOOLKIT_DIR/scripts"
+fi
+
 # Load libs
 source "$SCRIPT_DIR/lib/config.sh"
 source "$SCRIPT_DIR/lib/runner.sh"
@@ -35,7 +45,6 @@ command -v yq >/dev/null 2>&1 || {
   exit 1
 }
 
-cd "$REPO_ROOT"
 ############################################
 # READ CONFIG
 ############################################
