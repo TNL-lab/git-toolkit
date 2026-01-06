@@ -9,7 +9,7 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 cd "$REPO_ROOT"
 
 CONFIG_FILE=".git-toolkit.yml"
-TEMPLATE="$REPO_ROOT/templates/CHANGELOG.template.md"
+TEMPLATE="$SCRIPT_DIR/templates/CHANGELOG.template.md"
 OUTPUT="CHANGELOG.md"
 
 # Load libs
