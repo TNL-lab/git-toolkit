@@ -113,4 +113,4 @@ if [[ -n "$PHASE" && ! "$PHASE" =~ $PHASE_PATTERN ]]; then
   exit 1
 fi
 
-log "✅ Commit message validated against .git-toolkit.yml"
+echo "✅ Commit message validated against .git-toolkit.yml"
