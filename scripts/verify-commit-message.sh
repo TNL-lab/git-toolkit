@@ -32,10 +32,20 @@ fi
 
 CONFIG_FILE="$REPO_ROOT/.git-toolkit.yml"
 
+if [[ -n "${TOOLKIT_SCRIPTS:-}" ]]; then
+  SCRIPT_DIR="$(cd "$TOOLKIT_SCRIPTS" && pwd)"
+else
+  SCRIPT_DIR="$TOOLKIT_DIR/scripts"
+fi
+
 [[ -f "$CONFIG_FILE" ]] || {
   echo "❌ Missing $CONFIG_FILE at repo root"
   exit 1
 }
+
+source "$SCRIPT_DIR/lib/config.sh"
+source "$SCRIPT_DIR/lib/runner.sh"
+source "$SCRIPT_DIR/lib/packages.sh"
 
 ############################################
 # LOAD ALLOWED TYPES/SCOPES/PHASE
