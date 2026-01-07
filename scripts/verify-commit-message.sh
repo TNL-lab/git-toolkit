@@ -24,6 +24,8 @@ COMMIT_MSG="$(echo "$COMMIT_MSG" | tr -d '\n')"
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 cd "$REPO_ROOT"
 
+TOOLKIT_ROOT="${TOOLKIT_ROOT:-$(git rev-parse --show-toplevel)}"
+
 if [[ -n "${TOOLKIT_ROOT:-}" ]]; then
   TOOLKIT_DIR="$(cd "$TOOLKIT_ROOT" && pwd)"
 else
