@@ -30,7 +30,7 @@ else
   TOOLKIT_DIR="$REPO_ROOT"
 fi
 
-CONFIG_FILE=".git-toolkit.yml"
+CONFIG_FILE="$REPO_ROOT/.git-toolkit.yml"
 
 [[ -f "$CONFIG_FILE" ]] || {
   echo "❌ Missing $CONFIG_FILE at repo root"
